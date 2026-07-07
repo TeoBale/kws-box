@@ -628,6 +628,14 @@ configure_ssh_autoattach() {
 
     cat > "$block" <<EOF
 # >>> tmux-autoattach managed block >>>
+# Alcuni client (per esempio Ghostty) possono inviare un TERM non presente
+# nel database terminfo del server. Usa un fallback compatibile per tutti i
+# comandi della sessione SSH, incluso un avvio manuale di Tmux.
+if [[ \$- == *i* && -n "\${SSH_TTY:-}" ]] && \
+        ! infocmp "\${TERM:-}" >/dev/null 2>&1; then
+    export TERM=xterm-256color
+fi
+
 # Entra automaticamente nella sessione Tmux "${SESSION_NAME}"
 # solo per shell SSH interattive e solo se non siamo già dentro Tmux.
 # Per saltare temporaneamente l'auto-attach:
@@ -636,22 +644,18 @@ if [[ \$- == *i* \
       && -n "\${SSH_TTY:-}" \
       && -z "\${TMUX:-}" \
       && "\${TMUX_DISABLE_AUTOATTACH:-0}" != "1" ]]; then
-    # Alcuni client (per esempio Ghostty) possono inviare un TERM non presente
-    # nel database terminfo del server. In quel caso Tmux rifiuterebbe l'avvio
-    # e, dato l'exec, chiuderebbe anche la sessione SSH.
-    if ! infocmp "\${TERM:-}" >/dev/null 2>&1; then
-        export TERM=xterm-256color
-    fi
     exec tmux new-session -A -s "${SESSION_NAME}"
 fi
 # <<< tmux-autoattach managed block <<<
 EOF
 
     backup_file "$BASHRC"
+    backup_file "$ZSHRC"
     replace_managed_block "$BASHRC" "$BASH_START" "$BASH_END" "$block"
+    replace_managed_block "$ZSHRC" "$BASH_START" "$BASH_END" "$block"
     rm -f -- "$block"
 
-    ok "Auto-attach SSH configurato in: $BASHRC"
+    ok "Auto-attach SSH configurato in: $BASHRC e $ZSHRC"
 }
 
 reload_tmux_if_running() {

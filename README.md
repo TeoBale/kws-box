@@ -27,6 +27,7 @@ TMUX_DISABLE_AUTOATTACH=1 ssh user@host
   `zsh-syntax-highlighting`
 - eza and Yazi, with an `eza`-powered `ls` alias and the `y` shell helper
 - Tmux with mouse support, `Ctrl+a` prefix, useful splits, and SSH auto-attach
+  from Bash or Zsh, including a fallback for unavailable client terminfo entries
 - Docker Engine and access through the `docker` group
 - uv, Bun, Vite+, Agy CLI, Codex CLI, OpenCode, and Pi
 - Vite+ managed mode for automatic Node.js and package-manager version selection
