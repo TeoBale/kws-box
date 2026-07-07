@@ -1,0 +1,4 @@
+interface:
+  display_name: "Change KWS Colors"
+  short_description: "Change colors on an installed KWS Box"
+  default_prompt: "Use $change-kws-colors to update the color palette on this configured KWS Box machine."

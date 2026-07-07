@@ -1,8 +1,9 @@
 # KWS Box
 
 KWS Box turns a fresh Ubuntu/Debian host into a comfortable SSH development
-machine. It installs Zsh, Oh My Zsh, Tmux, Docker, uv, Bun, and common AI coding
-CLIs, then configures an automatically attached Tmux workspace.
+machine. It installs Zsh, Oh My Zsh, eza, Yazi, Tmux, Docker, uv, Bun, Vite+,
+and common AI coding CLIs, then configures an automatically attached Tmux
+workspace.
 
 The setup is idempotent: existing tools and user-defined theme colors are
 preserved when the installer runs again.
@@ -22,12 +23,29 @@ TMUX_DISABLE_AUTOATTACH=1 ssh user@host
 
 ## What it configures
 
-- Zsh and Oh My Zsh
+- Zsh and Oh My Zsh with `git`, `zsh-autosuggestions`, and
+  `zsh-syntax-highlighting`
+- eza and Yazi, with an `eza`-powered `ls` alias and the `y` shell helper
 - Tmux with mouse support, `Ctrl+a` prefix, useful splits, and SSH auto-attach
 - Docker Engine and access through the `docker` group
-- uv, Bun, Agy CLI, Codex CLI, OpenCode, and Pi
+- uv, Bun, Vite+, Agy CLI, Codex CLI, OpenCode, and Pi
+- Vite+ managed mode for automatic Node.js and package-manager version selection
 - Shared Bash, Zsh, and Tmux colors
 - User-local binary paths in `~/.bashrc`
+
+## Node.js versions with Vite+
+
+Vite+ installs the `vp` command and manages the global Node.js runtime by
+default. It resolves a project's version from `.node-version`,
+`devEngines.runtime`, or `engines.node`, falling back to the global default and
+then the latest LTS release.
+
+```bash
+vp env current       # Show the resolved Node.js version
+vp env pin lts       # Pin the current project to the latest LTS
+vp env default lts   # Set the global default
+vp env doctor        # Diagnose the environment configuration
+```
 
 ## Shared color theme
 
@@ -74,3 +92,8 @@ The project-local skill at
 `.codex/skills/manage-kws-theme/SKILL.md` documents how to change the palette or
 extend the theme to another application without introducing duplicated color
 configuration.
+
+After setup, use `.codex/skills/change-kws-colors/SKILL.md` to inspect or change
+the palette on an installed machine. Its bundled script validates HEX colors,
+creates a backup, keeps the accent RGB value synchronized, and reloads active
+Tmux sessions.

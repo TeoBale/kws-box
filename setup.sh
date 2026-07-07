@@ -26,6 +26,12 @@ PATH_END="# <<< kws-box-path managed block <<<"
 SHELL_THEME_START="# >>> kws-box-shell-theme managed block >>>"
 SHELL_THEME_END="# <<< kws-box-shell-theme managed block <<<"
 
+ZSH_PLUGINS_START="# >>> kws-box-zsh-plugins managed block >>>"
+ZSH_PLUGINS_END="# <<< kws-box-zsh-plugins managed block <<<"
+
+ZSH_UTILITIES_START="# >>> kws-box-zsh-utilities managed block >>>"
+ZSH_UTILITIES_END="# <<< kws-box-zsh-utilities managed block <<<"
+
 BASH_START="# >>> tmux-autoattach managed block >>>"
 BASH_END="# <<< tmux-autoattach managed block <<<"
 
@@ -66,7 +72,7 @@ ensure_prerequisites() {
     command -v apt-get >/dev/null 2>&1 || \
         die "Questo script richiede apt-get (Ubuntu/Debian)."
 
-    for command_name in curl git unzip; do
+    for command_name in curl git tar unzip; do
         command -v "$command_name" >/dev/null 2>&1 || missing+=("$command_name")
     done
 
@@ -107,7 +113,7 @@ install_oh_my_zsh() {
 }
 
 refresh_user_path() {
-    export PATH="${HOME}/.local/bin:${HOME}/.bun/bin:${HOME}/.opencode/bin:${PATH}"
+    export PATH="${HOME}/.local/bin:${HOME}/.bun/bin:${HOME}/.opencode/bin:${HOME}/.vite-plus/bin:${PATH}"
     hash -r
 }
 
@@ -181,6 +187,175 @@ replace_managed_block() {
     rm -f -- "$tmp_file" "${tmp_file}.trimmed"
 }
 
+insert_managed_block_before() {
+    local file="$1"
+    local start_marker="$2"
+    local end_marker="$3"
+    local before_pattern="$4"
+    local block_file="$5"
+    local tmp_file
+
+    touch "$file"
+    tmp_file="$(mktemp)"
+
+    awk -v start="$start_marker" -v end="$end_marker" '
+        $0 == start { skipping = 1; next }
+        $0 == end   { skipping = 0; next }
+        !skipping   { print }
+    ' "$file" > "$tmp_file"
+
+    awk -v pattern="$before_pattern" -v block_file="$block_file" '
+        !inserted && $0 ~ pattern {
+            while ((getline line < block_file) > 0) print line
+            close(block_file)
+            print ""
+            inserted = 1
+        }
+        { print }
+        END {
+            if (!inserted) {
+                print ""
+                while ((getline line < block_file) > 0) print line
+                close(block_file)
+            }
+        }
+    ' "$tmp_file" > "$file"
+
+    rm -f -- "$tmp_file"
+}
+
+install_zsh_plugins() {
+    local install_dir="${ZSH:-${HOME}/.oh-my-zsh}"
+    local custom_dir="${ZSH_CUSTOM:-${install_dir}/custom}"
+    local plugin_name
+    local plugin_url
+
+    mkdir -p "${custom_dir}/plugins"
+
+    while IFS='|' read -r plugin_name plugin_url; do
+        if [[ -d "${custom_dir}/plugins/${plugin_name}/.git" ]]; then
+            ok "Plugin Zsh già installato: ${plugin_name}"
+            continue
+        fi
+
+        info "Installo il plugin Zsh ${plugin_name}..."
+        git clone --depth 1 "$plugin_url" "${custom_dir}/plugins/${plugin_name}"
+        ok "Plugin Zsh installato: ${plugin_name}"
+    done <<'EOF'
+zsh-autosuggestions|https://github.com/zsh-users/zsh-autosuggestions.git
+zsh-syntax-highlighting|https://github.com/zsh-users/zsh-syntax-highlighting.git
+EOF
+}
+
+linux_target_triple() {
+    case "$(uname -m)" in
+        x86_64|amd64) printf '%s\n' 'x86_64-unknown-linux-gnu' ;;
+        aarch64|arm64) printf '%s\n' 'aarch64-unknown-linux-gnu' ;;
+        *) die "Architettura non supportata per eza e Yazi: $(uname -m)." ;;
+    esac
+}
+
+install_eza() {
+    local target
+    local temp_dir
+
+    refresh_user_path
+    if command -v eza >/dev/null 2>&1; then
+        ok "eza è già installato: $(eza --version | head -n 1)"
+        return 0
+    fi
+
+    target="$(linux_target_triple)"
+    temp_dir="$(mktemp -d)"
+    info "Installo eza per ${target}..."
+
+    curl -fsSL \
+        "https://github.com/eza-community/eza/releases/latest/download/eza_${target}.tar.gz" \
+        | tar -xz -C "$temp_dir"
+    [[ -f "${temp_dir}/eza" ]] || die "Il pacchetto di eza non contiene il binario atteso."
+
+    mkdir -p "${HOME}/.local/bin"
+    install -m 0755 "${temp_dir}/eza" "${HOME}/.local/bin/eza"
+    rm -rf -- "$temp_dir"
+    refresh_user_path
+    ok "eza installato: $(eza --version | head -n 1)"
+}
+
+install_yazi() {
+    local target
+    local temp_dir
+    local archive
+    local binary
+    local source_path
+
+    refresh_user_path
+    if command -v yazi >/dev/null 2>&1; then
+        ok "Yazi è già installato: $(yazi --version)"
+        return 0
+    fi
+
+    target="$(linux_target_triple)"
+    temp_dir="$(mktemp -d)"
+    archive="${temp_dir}/yazi.zip"
+    info "Installo Yazi per ${target}..."
+
+    curl -fsSL \
+        "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${target}.zip" \
+        -o "$archive"
+    unzip -q "$archive" -d "$temp_dir"
+
+    mkdir -p "${HOME}/.local/bin"
+    for binary in yazi ya; do
+        source_path="$(find "$temp_dir" -type f -name "$binary" -print -quit)"
+        [[ -n "$source_path" ]] || die "Il pacchetto di Yazi non contiene il binario '${binary}'."
+        install -m 0755 "$source_path" "${HOME}/.local/bin/${binary}"
+    done
+
+    rm -rf -- "$temp_dir"
+    refresh_user_path
+    ok "Yazi installato: $(yazi --version)"
+}
+
+configure_zsh() {
+    local plugins_block
+    local utilities_block
+
+    plugins_block="$(mktemp)"
+    utilities_block="$(mktemp)"
+
+    cat > "$plugins_block" <<'EOF'
+# >>> kws-box-zsh-plugins managed block >>>
+# Mantiene eventuali plugin già configurati e aggiunge quelli di kws-box.
+plugins=(${plugins[@]} git zsh-autosuggestions zsh-syntax-highlighting)
+plugins=(${(u)plugins})
+# <<< kws-box-zsh-plugins managed block <<<
+EOF
+
+    cat > "$utilities_block" <<'EOF'
+# >>> kws-box-zsh-utilities managed block >>>
+alias ls="eza --long --color=always --icons=always --no-user"
+
+# Avvia Yazi e, alla chiusura, porta la shell nella directory corrente di Yazi.
+function y() {
+    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+    command yazi "$@" --cwd-file="$tmp"
+    IFS= read -r -d '' cwd < "$tmp"
+    [[ "$cwd" != "$PWD" && -d "$cwd" ]] && builtin cd -- "$cwd"
+    rm -f -- "$tmp"
+}
+# <<< kws-box-zsh-utilities managed block <<<
+EOF
+
+    insert_managed_block_before \
+        "$ZSHRC" "$ZSH_PLUGINS_START" "$ZSH_PLUGINS_END" \
+        '^[[:space:]]*(source|\.)[[:space:]]+.*oh-my-zsh\.sh' "$plugins_block"
+    replace_managed_block \
+        "$ZSHRC" "$ZSH_UTILITIES_START" "$ZSH_UTILITIES_END" "$utilities_block"
+
+    rm -f -- "$plugins_block" "$utilities_block"
+    ok "Plugin e utility Zsh configurati in: $ZSHRC"
+}
+
 install_tmux() {
     if command -v tmux >/dev/null 2>&1; then
         ok "Tmux è già installato: $(tmux -V)"
@@ -201,6 +376,15 @@ install_uv() {
 
 install_bun() {
     install_with_script bun "Bun" "https://bun.sh/install"
+}
+
+install_vite_plus() {
+    install_with_script vp "Vite+" "https://vite.plus" VP_NODE_MANAGER=yes
+
+    info "Configuro Vite+ come gestore delle versioni Node.js..."
+    vp env setup --refresh
+    vp env on
+    ok "Vite+ gestirà Node.js e il package manager per ogni progetto."
 }
 
 install_docker() {
@@ -308,8 +492,8 @@ configure_user_path() {
 
     cat > "$block" <<'EOF'
 # >>> kws-box-path managed block >>>
-# Binari installati localmente da uv, Bun e dai CLI di coding.
-export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.opencode/bin:$PATH"
+# Binari installati localmente da uv, Bun, Vite+ e dai CLI di coding.
+export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.opencode/bin:$HOME/.vite-plus/bin:$PATH"
 # <<< kws-box-path managed block <<<
 EOF
 
@@ -332,6 +516,9 @@ set -g mouse on
 
 # Migliore supporto ai colori
 set -g default-terminal "tmux-256color"
+
+# Riconosce combinazioni di tasti modificate, incluso Enter con modificatori
+set -g extended-keys on
 
 # Riduce il ritardo dopo il prefix
 set -sg escape-time 10
@@ -463,7 +650,7 @@ Auto-attach SSH         : ${BASHRC}
 Palette globale         : ${THEME_CONF}
 
 Strumenti installati/verificati:
-  zsh, oh-my-zsh, tmux, uv, bun, docker, agy, codex, opencode, pi
+  zsh, oh-my-zsh, eza, yazi, tmux, uv, bun, vite+, docker, agy, codex, opencode, pi
 
 Scorciatoie principali:
   Ctrl+a, c      Nuova finestra
@@ -494,11 +681,16 @@ main() {
     ensure_prerequisites
     install_zsh
     install_oh_my_zsh
+    install_zsh_plugins
+    install_eza
+    install_yazi
     install_tmux
     install_uv
     install_bun
+    install_vite_plus
     install_docker
     install_ai_clis
+    configure_zsh
     configure_global_theme
     configure_user_path
     configure_tmux
