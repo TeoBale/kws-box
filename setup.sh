@@ -360,6 +360,8 @@ EOF
     cat > "$utilities_block" <<'EOF'
 # >>> kws-box-zsh-utilities managed block >>>
 alias ls="eza --long --color=always --icons=always --no-user"
+alias ll="eza --long --color=always --icons=always --no-user"
+alias la="eza --long --all --color=always --icons=always --no-user"
 
 # Avvia Yazi e, alla chiusura, porta la shell nella directory corrente di Yazi.
 function y() {

@@ -25,7 +25,7 @@ TMUX_DISABLE_AUTOATTACH=1 ssh user@host
 
 - Zsh as the default login shell, with Oh My Zsh, `git`, `zsh-autosuggestions`, and
   `zsh-syntax-highlighting`
-- eza and Yazi, with an `eza`-powered `ls` alias and the `y` shell helper
+- eza and Yazi, with `ls`, `ll`, and `la` aliases plus the `y` shell helper
 - Tmux with mouse support, `Ctrl+a` prefix, useful splits, and SSH auto-attach
   from Bash or Zsh, including a fallback for unavailable client terminfo entries
 - Docker Engine and access through the `docker` group
