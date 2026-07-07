@@ -13,10 +13,18 @@ set -Eeuo pipefail
 SESSION_NAME="${TMUX_SESSION_NAME:-main}"
 
 BASHRC="${HOME}/.bashrc"
+ZSHRC="${HOME}/.zshrc"
 TMUX_CONF="${HOME}/.tmux.conf"
+THEME_DIR="${HOME}/.config/kws-box"
+THEME_CONF="${THEME_DIR}/theme.conf"
+SHELL_THEME="${THEME_DIR}/shell-theme.sh"
+TMUX_THEME="${THEME_DIR}/apply-tmux-theme.sh"
 
 PATH_START="# >>> kws-box-path managed block >>>"
 PATH_END="# <<< kws-box-path managed block <<<"
+
+SHELL_THEME_START="# >>> kws-box-shell-theme managed block >>>"
+SHELL_THEME_END="# <<< kws-box-shell-theme managed block <<<"
 
 BASH_START="# >>> tmux-autoattach managed block >>>"
 BASH_END="# <<< tmux-autoattach managed block <<<"
@@ -226,6 +234,74 @@ install_ai_clis() {
     install_with_script pi "Pi" "https://pi.dev/install.sh"
 }
 
+configure_global_theme() {
+    local block
+
+    mkdir -p "$THEME_DIR"
+    if [[ ! -e "$THEME_CONF" ]]; then
+        cat > "$THEME_CONF" <<'EOF'
+# Palette globale kws-box. I valori HEX sono riutilizzabili da altri applicativi.
+KWS_THEME_BACKGROUND="#151515"
+KWS_THEME_FOREGROUND="#d8d8d8"
+KWS_THEME_MUTED="#686868"
+KWS_THEME_ACCENT="#f2ad66"
+
+# Equivalente RGB dell'accento, usato dal prompt Bash.
+KWS_THEME_ACCENT_RGB="242;173;102"
+EOF
+        ok "Palette globale creata: $THEME_CONF"
+    else
+        ok "Palette globale già presente: $THEME_CONF"
+    fi
+
+    cat > "$SHELL_THEME" <<'EOF'
+# Caricato dai file rc di Bash e Zsh.
+[[ -r "$HOME/.config/kws-box/theme.conf" ]] || return 0
+. "$HOME/.config/kws-box/theme.conf"
+
+if [[ -n "${ZSH_VERSION:-}" ]]; then
+    PROMPT="%F{${KWS_THEME_ACCENT}}%n@%m%f:%F{${KWS_THEME_FOREGROUND}}%~%f%F{${KWS_THEME_ACCENT}}%#%f "
+elif [[ -n "${BASH_VERSION:-}" ]]; then
+    PS1="\[\e[38;2;${KWS_THEME_ACCENT_RGB}m\]\u@\h\[\e[0m\]:\[\e[38;2;${KWS_THEME_ACCENT_RGB}m\]\w\[\e[0m\]\$ "
+fi
+
+kws-theme-reload() {
+    . "$HOME/.config/kws-box/shell-theme.sh"
+    if command -v tmux >/dev/null 2>&1 && tmux list-sessions >/dev/null 2>&1; then
+        "$HOME/.config/kws-box/apply-tmux-theme.sh"
+    fi
+}
+EOF
+
+    cat > "$TMUX_THEME" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+. "$HOME/.config/kws-box/theme.conf"
+
+tmux set -g status-style "bg=${KWS_THEME_BACKGROUND},fg=${KWS_THEME_MUTED}"
+tmux set -g status-left-length 40
+tmux set -g status-left "#[bg=${KWS_THEME_ACCENT},fg=${KWS_THEME_BACKGROUND},bold] #H #[bg=${KWS_THEME_BACKGROUND},fg=${KWS_THEME_ACCENT},bold] #S "
+tmux set -g status-right-length 60
+tmux set -g status-right "#[bg=${KWS_THEME_ACCENT},fg=${KWS_THEME_BACKGROUND},bold] CPU #(LC_ALL=C top -bn1 | awk '/Cpu\\(s\\)/ {printf \"%.0f%%\", 100-\$8}') · MEM #(free | awk '/Mem:/ {printf \"%.0f%%\", \$3/\$2*100}') "
+tmux set-window-option -g window-status-separator " "
+tmux set-window-option -g window-status-format "#[fg=${KWS_THEME_MUTED}]#I:#W"
+tmux set-window-option -g window-status-current-format "#[fg=${KWS_THEME_ACCENT},bold]#I:#W"
+EOF
+    chmod 0755 "$TMUX_THEME"
+
+    block="$(mktemp)"
+    cat > "$block" <<'EOF'
+# >>> kws-box-shell-theme managed block >>>
+[[ -r "$HOME/.config/kws-box/shell-theme.sh" ]] && . "$HOME/.config/kws-box/shell-theme.sh"
+# <<< kws-box-shell-theme managed block <<<
+EOF
+    replace_managed_block "$BASHRC" "$SHELL_THEME_START" "$SHELL_THEME_END" "$block"
+    replace_managed_block "$ZSHRC" "$SHELL_THEME_START" "$SHELL_THEME_END" "$block"
+    rm -f -- "$block"
+
+    ok "Tema shell configurato in Bash e Zsh."
+}
+
 configure_user_path() {
     local block
     block="$(mktemp)"
@@ -266,6 +342,9 @@ set -g history-limit 100000
 # Barra delle finestre in basso
 set -g status-position bottom
 set -g status-interval 5
+
+# Tutti i colori arrivano dalla palette globale ~/.config/kws-box/theme.conf
+run-shell "$HOME/.config/kws-box/apply-tmux-theme.sh"
 
 ##### NUMERAZIONE ###############################################
 
@@ -343,6 +422,12 @@ if [[ \$- == *i* \
       && -n "\${SSH_TTY:-}" \
       && -z "\${TMUX:-}" \
       && "\${TMUX_DISABLE_AUTOATTACH:-0}" != "1" ]]; then
+    # Alcuni client (per esempio Ghostty) possono inviare un TERM non presente
+    # nel database terminfo del server. In quel caso Tmux rifiuterebbe l'avvio
+    # e, dato l'exec, chiuderebbe anche la sessione SSH.
+    if ! infocmp "\${TERM:-}" >/dev/null 2>&1; then
+        export TERM=xterm-256color
+    fi
     exec tmux new-session -A -s "${SESSION_NAME}"
 fi
 # <<< tmux-autoattach managed block <<<
@@ -375,7 +460,7 @@ Configurazione completata
 Sessione SSH automatica : ${SESSION_NAME}
 File Tmux               : ${TMUX_CONF}
 Auto-attach SSH         : ${BASHRC}
-Tema custom             : NON installato
+Palette globale         : ${THEME_CONF}
 
 Strumenti installati/verificati:
   zsh, oh-my-zsh, tmux, uv, bun, docker, agy, codex, opencode, pi
@@ -414,6 +499,7 @@ main() {
     install_bun
     install_docker
     install_ai_clis
+    configure_global_theme
     configure_user_path
     configure_tmux
     configure_ssh_autoattach

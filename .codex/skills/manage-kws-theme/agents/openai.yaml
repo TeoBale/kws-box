@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage KWS Theme"
+  short_description: "Maintain the shared KWS Box color theme"
+  default_prompt: "Use $manage-kws-theme to update the shared KWS Box palette or extend it to another application."
