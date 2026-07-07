@@ -97,6 +97,32 @@ install_zsh() {
     ok "Zsh installato: $(zsh --version)"
 }
 
+configure_default_shell() {
+    local login_user
+    local current_shell
+    local zsh_path
+
+    login_user="${SUDO_USER:-$(id -un)}"
+    zsh_path="$(command -v zsh)"
+    current_shell="$(getent passwd "$login_user" | awk -F: '{ print $7 }')"
+
+    if [[ "$current_shell" == "$zsh_path" ]]; then
+        ok "Zsh è già la shell predefinita di ${login_user}."
+        return 0
+    fi
+
+    command -v chsh >/dev/null 2>&1 || \
+        die "Il comando chsh non è disponibile: impossibile impostare Zsh come shell predefinita."
+
+    info "Imposto Zsh come shell predefinita di ${login_user}..."
+    run_as_root chsh -s "$zsh_path" "$login_user"
+
+    current_shell="$(getent passwd "$login_user" | awk -F: '{ print $7 }')"
+    [[ "$current_shell" == "$zsh_path" ]] || \
+        die "Zsh è installato, ma non è stato impostato come shell predefinita di ${login_user}."
+    ok "Zsh impostato come shell predefinita di ${login_user}."
+}
+
 install_oh_my_zsh() {
     local install_dir="${ZSH:-${HOME}/.oh-my-zsh}"
 
@@ -681,6 +707,7 @@ main() {
     info "Avvio configurazione automatica della macchina."
     ensure_prerequisites
     install_zsh
+    configure_default_shell
     install_oh_my_zsh
     install_zsh_plugins
     install_eza
