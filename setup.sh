@@ -508,6 +508,9 @@ set -g mouse on
 # Migliore supporto ai colori
 set -g default-terminal "tmux-256color"
 
+# Riconosce combinazioni di tasti modificate, incluso Enter con modificatori
+set -g extended-keys on
+
 # Riduce il ritardo dopo il prefix
 set -sg escape-time 10
 
