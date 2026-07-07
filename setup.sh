@@ -498,8 +498,9 @@ export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.opencode/bin:$HOME/.vite-plu
 EOF
 
     replace_managed_block "$BASHRC" "$PATH_START" "$PATH_END" "$block"
+    replace_managed_block "$ZSHRC" "$PATH_START" "$PATH_END" "$block"
     rm -f -- "$block"
-    ok "PATH degli strumenti configurato in: $BASHRC"
+    ok "PATH degli strumenti configurato in: $BASHRC e $ZSHRC"
 }
 
 configure_tmux() {

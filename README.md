@@ -31,7 +31,7 @@ TMUX_DISABLE_AUTOATTACH=1 ssh user@host
 - uv, Bun, Vite+, Agy CLI, Codex CLI, OpenCode, and Pi
 - Vite+ managed mode for automatic Node.js and package-manager version selection
 - Shared Bash, Zsh, and Tmux colors
-- User-local binary paths in `~/.bashrc`
+- User-local binary paths in `~/.bashrc` and `~/.zshrc`
 
 ## Node.js versions with Vite+
 
