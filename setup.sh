@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Prepara una macchina di lavoro Ubuntu/Debian raggiunta via SSH.
-# Installa Tmux, Docker e i principali tool di sviluppo/AI.
+# Installa Zsh, Oh My Zsh, Tmux, Docker e i principali tool di sviluppo/AI.
 # - Nessun tema custom
 # - Mouse attivo
 # - Barra delle finestre cliccabile in basso
@@ -58,7 +58,7 @@ ensure_prerequisites() {
     command -v apt-get >/dev/null 2>&1 || \
         die "Questo script richiede apt-get (Ubuntu/Debian)."
 
-    for command_name in curl unzip; do
+    for command_name in curl git unzip; do
         command -v "$command_name" >/dev/null 2>&1 || missing+=("$command_name")
     done
 
@@ -69,6 +69,33 @@ ensure_prerequisites() {
     info "Installo i prerequisiti: ${missing[*]}..."
     run_as_root apt-get update
     run_as_root apt-get install -y ca-certificates "${missing[@]}"
+}
+
+install_zsh() {
+    if command -v zsh >/dev/null 2>&1; then
+        ok "Zsh è già installato: $(zsh --version)"
+        return 0
+    fi
+
+    info "Installo Zsh..."
+    run_as_root apt-get update
+    run_as_root apt-get install -y zsh
+    ok "Zsh installato: $(zsh --version)"
+}
+
+install_oh_my_zsh() {
+    local install_dir="${ZSH:-${HOME}/.oh-my-zsh}"
+
+    if [[ -d "${install_dir}/.git" ]]; then
+        ok "Oh My Zsh è già installato: $install_dir"
+        return 0
+    fi
+
+    info "Installo Oh My Zsh..."
+    RUNZSH=no CHSH=no KEEP_ZSHRC=yes ZSH="$install_dir" \
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    [[ -d "${install_dir}/.git" ]] || die "Installazione di Oh My Zsh non riuscita."
+    ok "Oh My Zsh installato: $install_dir"
 }
 
 refresh_user_path() {
@@ -351,7 +378,7 @@ Auto-attach SSH         : ${BASHRC}
 Tema custom             : NON installato
 
 Strumenti installati/verificati:
-  tmux, uv, bun, docker, agy, codex, opencode, pi
+  zsh, oh-my-zsh, tmux, uv, bun, docker, agy, codex, opencode, pi
 
 Scorciatoie principali:
   Ctrl+a, c      Nuova finestra
@@ -380,6 +407,8 @@ EOF
 main() {
     info "Avvio configurazione automatica della macchina."
     ensure_prerequisites
+    install_zsh
+    install_oh_my_zsh
     install_tmux
     install_uv
     install_bun
