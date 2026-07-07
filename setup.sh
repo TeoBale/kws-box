@@ -113,7 +113,7 @@ install_oh_my_zsh() {
 }
 
 refresh_user_path() {
-    export PATH="${HOME}/.local/bin:${HOME}/.bun/bin:${HOME}/.opencode/bin:${PATH}"
+    export PATH="${HOME}/.local/bin:${HOME}/.bun/bin:${HOME}/.opencode/bin:${HOME}/.vite-plus/bin:${PATH}"
     hash -r
 }
 
@@ -378,6 +378,15 @@ install_bun() {
     install_with_script bun "Bun" "https://bun.sh/install"
 }
 
+install_vite_plus() {
+    install_with_script vp "Vite+" "https://vite.plus" VP_NODE_MANAGER=yes
+
+    info "Configuro Vite+ come gestore delle versioni Node.js..."
+    vp env setup --refresh
+    vp env on
+    ok "Vite+ gestirà Node.js e il package manager per ogni progetto."
+}
+
 install_docker() {
     local installer
     local login_user
@@ -483,8 +492,8 @@ configure_user_path() {
 
     cat > "$block" <<'EOF'
 # >>> kws-box-path managed block >>>
-# Binari installati localmente da uv, Bun e dai CLI di coding.
-export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.opencode/bin:$PATH"
+# Binari installati localmente da uv, Bun, Vite+ e dai CLI di coding.
+export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.opencode/bin:$HOME/.vite-plus/bin:$PATH"
 # <<< kws-box-path managed block <<<
 EOF
 
@@ -641,7 +650,7 @@ Auto-attach SSH         : ${BASHRC}
 Palette globale         : ${THEME_CONF}
 
 Strumenti installati/verificati:
-  zsh, oh-my-zsh, eza, yazi, tmux, uv, bun, docker, agy, codex, opencode, pi
+  zsh, oh-my-zsh, eza, yazi, tmux, uv, bun, vite+, docker, agy, codex, opencode, pi
 
 Scorciatoie principali:
   Ctrl+a, c      Nuova finestra
@@ -678,6 +687,7 @@ main() {
     install_tmux
     install_uv
     install_bun
+    install_vite_plus
     install_docker
     install_ai_clis
     configure_zsh
